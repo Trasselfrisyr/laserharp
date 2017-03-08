@@ -18,7 +18,7 @@
 //#define SCALE_SET_PIN A11    // pin for scale setting potentiometer (32 scales available)
 //#define SCALE_SW_PIN 2       // pin for switch dividing scale setting in two (16 upper, 16 lower)
 //#define OCTAVE_SET_PIN A12   // pin for octave setting potentiometer (-3 to +3 octaves)
-//#define TRANSP_SET_PIN A14   // pin for transposition setting potentiometer (-12 to +12 semitones)
+//#define TRANSP_SET_PIN A13   // pin for transposition setting potentiometer (-12 to +12 semitones)
 #define CHECK_INTERVAL 5     // interval in ms for matrix check
 
 unsigned long currentMillis = 0L;
