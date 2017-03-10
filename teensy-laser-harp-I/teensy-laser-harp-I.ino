@@ -14,11 +14,11 @@
 #define START_NOTE 60        // MIDI start note (middle C)
 #define BEAMS 16             // number of laser beams (up to 16)
 
-//#define THR_SET_PIN A10      // pin for sensitivity adjustment potentiometer
-//#define SCALE_SET_PIN A11    // pin for scale setting potentiometer (32 scales available)
-//#define SCALE_SW_PIN 2       // pin for switch dividing scale setting in two (16 upper, 16 lower)
-//#define OCTAVE_SET_PIN A12   // pin for octave setting potentiometer (-3 to +3 octaves)
-//#define TRANSP_SET_PIN A13   // pin for transposition setting potentiometer (-12 to +12 semitones)
+#define THR_SET_PIN A10      // pin for sensitivity adjustment potentiometer
+#define SCALE_SET_PIN A11    // pin for scale setting potentiometer (32 scales available)
+#define SCALE_SW_PIN 2       // pin for switch dividing scale setting in two (16 upper, 16 lower)
+#define OCTAVE_SET_PIN A12   // pin for octave setting potentiometer (-3 to +3 octaves)
+#define TRANSP_SET_PIN A13   // pin for transposition setting potentiometer (-12 to +12 semitones)
 #define CHECK_INTERVAL 5     // interval in ms for matrix check
 
 unsigned long currentMillis = 0L;
@@ -71,7 +71,7 @@ byte scaleNote[32][16] = {
 };
 
 void setup() {
-//  pinMode(SCALE_SW_PIN, INPUT_PULLUP);
+  pinMode(SCALE_SW_PIN, INPUT_PULLUP);
   Serial1.begin(31250);  // start serial with midi baudrate 31250
   Serial1.flush();
 }
@@ -79,12 +79,12 @@ void setup() {
 void loop() {
   currentMillis = millis();
   if ((unsigned long)(currentMillis - statusPreviousMillis) >= CHECK_INTERVAL) {
-//    thrValue = map(analogRead(THR_SET_PIN),0,1023,60,600); // set sensitivity for light sensors
-//    offThr = thrValue - 50;
+    thrValue = map(analogRead(THR_SET_PIN),0,1023,60,600); // set sensitivity for light sensors
+    offThr = thrValue - 50;
     if (noActiveNote) {                                     // needed? maybe just run setNoteParamsPlay() everytime
-      //setNoteParams();                                    // adjust note selection parameters directly when no notes are playing
+      setNoteParams();                                    // adjust note selection parameters directly when no notes are playing
     } else {
-      //setNoteParamsPlay();                                // adjust note selection parameters with note-offs for previous params and note-ons for new
+      setNoteParamsPlay();                                // adjust note selection parameters with note-offs for previous params and note-ons for new
     }
     noActiveNote = 1;                                     // before each scan, assume there's no note playing
     for (int scanSensors = 0; scanSensors < BEAMS; scanSensors++) {   // scan matrix for changes and send note on/off accordingly
@@ -116,16 +116,16 @@ void loop() {
   Serial1.write(data2);
 }
 
-/*
+
 void setNoteParams() {
-  scale = (analogRead(SCALE_SET_PIN) / 16) + (digitalRead(SCALE_SW_PIN) * 16);
+  scale = (analogRead(SCALE_SET_PIN) / 64) + (digitalRead(SCALE_SW_PIN) * 16);
   octave = map(analogRead(OCTAVE_SET_PIN), 0, 1023, -3, 3) * 12;
   transposition = map(analogRead(TRANSP_SET_PIN), 0, 1023, -12, 12);
 }
 
 void setNoteParamsPlay() {
   int rePlay = 0;
-  int readScale = (analogRead(SCALE_SET_PIN) / 16) + (digitalRead(SCALE_SW_PIN) * 16);
+  int readScale = (analogRead(SCALE_SET_PIN) / 64) + (digitalRead(SCALE_SW_PIN) * 16);
   if (readScale != scale) {
     rePlay = 1;
   }
@@ -155,4 +155,4 @@ void setNoteParamsPlay() {
     transposition = readTransposition;
   }
 }
-*/
+
