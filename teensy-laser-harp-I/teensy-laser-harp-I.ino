@@ -123,7 +123,7 @@ void loop() {
 
 void setNoteParams() {
   scale = (analogRead(SCALE_SET_PIN) / 64) + (digitalRead(SCALE_SW_PIN) * 16);
-  octave = map(analogRead(OCTAVE_SET_PIN), 0, 1023, -3, 3) * 12;
+  octave = map(analogRead(OCTAVE_SET_PIN), 0, 1023, -4, 3) * 12;
   transposition = map(analogRead(TRANSP_SET_PIN), 0, 1023, -12, 12);
 }
 
