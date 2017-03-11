@@ -27,6 +27,8 @@ unsigned long statusPreviousMillis = 0L;
 byte sensorPin[16]       = {14,15,16,17,18,19,20,21,22,23,26,27,28,29,30,31}; // teensy analog input pins
 byte activeNote[16]      = {0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0}; // keeps track of active notes
 byte sensedNote;             // current reading
+byte currentMidiNote;     
+byte newMidiNote;
 byte noActiveNote = 1;       // flag for avoiding note/scale parameter changes during play (eliminate note hangs)
 int scale = 1;              // scale setting
 int octave = 0;             // octave setting
@@ -94,13 +96,16 @@ void loop() {
         sensedNote = (analogRead(sensorPin[scanSensors]) > offThr);   // if note is on, sensedNote only goes low if sensor value goes below offThr
       }
       if (sensedNote != activeNote[scanSensors]) {
-        if (sensedNote){
-            usbMIDI.sendNoteOn((START_NOTE + scaleNote[scale][scanSensors] + octave + transposition), VELOCITY, MIDI_CH + 1);  // send Note On, USB MIDI
-            midiSend((0x90 | MIDI_CH), (START_NOTE + scaleNote[scale][scanSensors] + octave + transposition), VELOCITY);   // send Note On, DIN MIDI
-        } else {
-            usbMIDI.sendNoteOff((START_NOTE + scaleNote[scale][scanSensors] + octave + transposition), VELOCITY, MIDI_CH + 1); // send note Off, USB MIDI
-            midiSend((0x80 | MIDI_CH), (START_NOTE + scaleNote[scale][scanSensors] + octave + transposition), VELOCITY);   // send Note Off, DIN MIDI
-        }
+        currentMidiNote = START_NOTE + scaleNote[scale][scanSensors] + octave + transposition;
+        if ((currentMidiNote < 128) && (currentMidiNote > -1)) {           // we don't want to send midi out of range
+          if (sensedNote){
+              usbMIDI.sendNoteOn(currentMidiNote, VELOCITY, MIDI_CH + 1);  // send Note On, USB MIDI
+              midiSend((0x90 | MIDI_CH), currentMidiNote, VELOCITY);       // send Note On, DIN MIDI
+          } else {
+              usbMIDI.sendNoteOff(currentMidiNote, VELOCITY, MIDI_CH + 1); // send note Off, USB MIDI
+              midiSend((0x80 | MIDI_CH), currentMidiNote, VELOCITY);       // send Note Off, DIN MIDI
+          }
+        }  
         activeNote[scanSensors] = sensedNote;         
       } 
     if (activeNote[scanSensors]) noActiveNote = 0;           // if there is a note active, set flag false  
@@ -129,7 +134,7 @@ void setNoteParamsPlay() {
   if (readScale != scale) {
     rePlay = 1;
   }
-  int readOctave = map(analogRead(OCTAVE_SET_PIN), 0, 1023, -3, 3) * 12;
+  int readOctave = map(analogRead(OCTAVE_SET_PIN), 0, 1023, -4, 3) * 12;
   if (readOctave != octave) {
     rePlay = 1;
   }
@@ -139,15 +144,21 @@ void setNoteParamsPlay() {
   }
   if (rePlay) {
     for (int i = 0; i < BEAMS; i++) {
-       if (activeNote[i]) {
-        usbMIDI.sendNoteOff((START_NOTE + scaleNote[scale][i] + octave + transposition), VELOCITY, MIDI_CH + 1); // send Note Off, USB MIDI
-        midiSend((0x80 | MIDI_CH), (START_NOTE + scaleNote[scale][i] + octave + transposition), VELOCITY);   // send Note Off, DIN MIDI
+       currentMidiNote = START_NOTE + scaleNote[scale][i] + octave + transposition;
+       if ((currentMidiNote < 128) && (currentMidiNote > -1)) {        // we don't want to send midi out of range
+         if (activeNote[i]) {
+          usbMIDI.sendNoteOff(currentMidiNote, VELOCITY, MIDI_CH + 1); // send Note Off, USB MIDI
+          midiSend((0x80 | MIDI_CH), currentMidiNote, VELOCITY);       // send Note Off, DIN MIDI
+         }
        }
     }
     for (int i = 0; i < BEAMS; i++) {
-      if (activeNote[i]) {
-        usbMIDI.sendNoteOn((START_NOTE + scaleNote[readScale][i] + readOctave + readTransposition), VELOCITY, MIDI_CH + 1);  // send Note On, USB MIDI
-        midiSend((0x90 | MIDI_CH), (START_NOTE + scaleNote[scale][i] + readOctave + readTransposition), VELOCITY);       // send Note On, DIN MIDI
+      newMidiNote = START_NOTE + scaleNote[readScale][i] + readOctave + readTransposition;
+      if ((newMidiNote < 128) && (newMidiNote > -1)) {             // we don't want to send midi out of range
+        if (activeNote[i]) {
+          usbMIDI.sendNoteOn(newMidiNote, VELOCITY, MIDI_CH + 1);  // send Note On, USB MIDI
+          midiSend((0x90 | MIDI_CH), newMidiNote, VELOCITY);       // send Note On, DIN MIDI
+        }
       }
     }
     scale = readScale;
