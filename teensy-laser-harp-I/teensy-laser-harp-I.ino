@@ -28,7 +28,6 @@ byte sensorPin[16]       = {14,15,16,17,18,19,20,21,22,23,26,27,28,29,30,31}; //
 byte activeNote[16]      = {0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0}; // keeps track of active notes
 byte sensedNote;            // current reading
 int noteNumber;             // calculated midi note number
-byte noActiveNote = 1;      // flag for avoiding note/scale parameter changes during play (eliminate note hangs)
 int scale = 1;              // scale setting
 int octave = 0;             // octave setting
 int transposition = 0;      // transposition setting
@@ -80,51 +79,38 @@ void setup() {
 void loop() {
   currentMillis = millis();
   if ((unsigned long)(currentMillis - statusPreviousMillis) >= CHECK_INTERVAL) {
-    thrValue = map(analogRead(THR_SET_PIN),0,1023,60,600); // set sensitivity for light sensors
+    thrValue = map(analogRead(THR_SET_PIN),0,1023,60,600);              // set sensitivity for light sensors
     offThr = thrValue - 50;
-    if (noActiveNote) {                                   
-      setNoteParams();                                    // adjust note selection parameters directly when no notes are playing
-    } else {
-      setNoteParamsPlay();                                // adjust note selection parameters with note-offs for previous params and note-ons for new
-    }
-    noActiveNote = 1;                                     // before each scan, assume there's no note playing
-    for (int scanSensors = 0; scanSensors < BEAMS; scanSensors++) {   // scan matrix for changes and send note on/off accordingly
+    setNoteParamsPlay();                                                // adjust note selection parameters with note-offs for previous params and note-ons for new
+    for (int scanSensors = 0; scanSensors < BEAMS; scanSensors++) {     // scan matrix for changes and send note on/off accordingly
       if (!activeNote[scanSensors]){
         sensedNote = (analogRead(sensorPin[scanSensors]) > thrValue);   // if note is off, sensedNote gets high if sensor value is higher than thrValue
       } else {
-        sensedNote = (analogRead(sensorPin[scanSensors]) > offThr);   // if note is on, sensedNote only goes low if sensor value goes below offThr
+        sensedNote = (analogRead(sensorPin[scanSensors]) > offThr);     // if note is on, sensedNote only goes low if sensor value goes below offThr
       }
       if (sensedNote != activeNote[scanSensors]) {
         noteNumber = START_NOTE + scaleNote[scale][scanSensors] + octave + transposition;
-        if ((noteNumber < 128) && (noteNumber > -1)) {                // we don't want to send midi out of range
+        if ((noteNumber < 128) && (noteNumber > -1)) {                  // we don't want to send midi out of range
           if (sensedNote){
-              usbMIDI.sendNoteOn(noteNumber, VELOCITY, MIDI_CH + 1);  // send Note On, USB MIDI
-              midiSend((0x90 | MIDI_CH), noteNumber, VELOCITY);       // send Note On, DIN MIDI
+              usbMIDI.sendNoteOn(noteNumber, VELOCITY, MIDI_CH + 1);    // send Note On, USB MIDI
+              midiSend((0x90 | MIDI_CH), noteNumber, VELOCITY);         // send Note On, DIN MIDI
           } else {
-              usbMIDI.sendNoteOff(noteNumber, VELOCITY, MIDI_CH + 1); // send note Off, USB MIDI
-              midiSend((0x80 | MIDI_CH), noteNumber, VELOCITY);       // send Note Off, DIN MIDI
+              usbMIDI.sendNoteOff(noteNumber, VELOCITY, MIDI_CH + 1);   // send note Off, USB MIDI
+              midiSend((0x80 | MIDI_CH), noteNumber, VELOCITY);         // send Note Off, DIN MIDI
           }
         }  
         activeNote[scanSensors] = sensedNote;         
       } 
-    if (activeNote[scanSensors]) noActiveNote = 0;           // if there is a note active, set flag false  
     }
-    statusPreviousMillis = currentMillis;                // reset interval timing
+    statusPreviousMillis = currentMillis;                               // reset interval timing
   }
 }
 
 //  Send a three byte midi message on serial 1 (DIN MIDI) 
-  void midiSend(byte midistatus, byte data1, byte data2) {
+void midiSend(byte midistatus, byte data1, byte data2) {
   Serial1.write(midistatus);
   Serial1.write(data1);
   Serial1.write(data2);
-}
-
-
-void setNoteParams() {
-  scale = (analogRead(SCALE_SET_PIN) / 64) + (digitalRead(SCALE_SW_PIN) * 16);
-  octave = map(analogRead(OCTAVE_SET_PIN), 0, 1023, -4, 3) * 12;
-  transposition = map(analogRead(TRANSP_SET_PIN), 0, 1023, -12, 12);
 }
 
 void setNoteParamsPlay() {
