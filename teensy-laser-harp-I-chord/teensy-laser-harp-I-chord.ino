@@ -20,35 +20,37 @@
 #define THR_SET_PIN A10      // pin for sensitivity adjustment potentiometer
 #define OCTAVE_SET_PIN A12   // pin for octave setting potentiometer (-3 to +3 octaves)
 #define TRANSP_SET_PIN A13   // pin for transposition setting potentiometer (-12 to +12 semitones)
+
 #define CHECK_INTERVAL 5     // interval in ms for matrix check
 
 unsigned long currentMillis = 0L;
 unsigned long statusPreviousMillis = 0L;
 
-byte colPin[11]          = {3,4,5,6,7,8,9,10,11,12,33}; // teensy digital input pins for keyboard columns
-                                                        // (not using pin 2 so you can use same hardware as original version)
+byte colPin[12]          = {3,4,5,6,7,8,9,10,11,12,32,33};  // teensy digital input pins for keyboard columns
+                                                            // (not using pin 2 so you can use same hardware as original version)
+                                                          
+                                                            // column setup for omnichord style (circle of fifths)
+                                                            // chord    Db, Ab, Eb, Bb,  F,  C,  G,  D,  A,  E,  B, F#
+                                                            // col/note  1,  8,  3, 10,  5,  0,  7,  2,  9,  4, 11,  6
+                                                            // for chromatic order, C to B, wire to columns in straight order 0 to 11
 
-// column setup for omnichord style (circle of fifths)
-// chord    Db, Ab, Eb, Bb,  F,  C,  G,  D,  A,  E,  B, F#
-// col/note  1,  8,  3, 10,  5,  0,  7,  2,  9,  4, 11,  6
-// for chromatic order, C to B, wire to columns in straight order 0 to 11
+byte rowPin[3]           = {24,25,13};                      // teensy output pins for keyboard rows, where 0 is bottom row
 
-byte rowPin[3]           = {24,25,32};                  // teensy output pins for keyboard rows, where 0 is bottom row
-
-// chord type   maj, min, 7th
-// row            2,   1,   0
-
-// chordType 0 to 7, from binary row combinations
-// 0 0 0 silent
-// 0 0 1 maj
-// 0 1 0 min
-// 0 1 1 dim  (maj+min keys)
-// 1 0 0 7th
-// 1 0 1 maj7 (maj+7th keys)
-// 1 1 0 m7   (min+7th keys)
-// 1 1 1 aug  (maj+min+7th)
+                                                            // chord type   maj, min, 7th
+                                                            // row            2,   1,   0
+                                                            
+                                                            // chordType 0 to 7, from binary row combinations
+                                                            // 0 0 0 silent
+                                                            // 0 0 1 maj
+                                                            // 0 1 0 min
+                                                            // 0 1 1 dim  (maj+min keys)
+                                                            // 1 0 0 7th
+                                                            // 1 0 1 maj7 (maj+7th keys)
+                                                            // 1 1 0 m7   (min+7th keys)
+                                                            // 1 1 1 aug  (maj+min+7th)
 
 byte sensorPin[16]       = {14,15,16,17,18,19,20,21,22,23,26,27,28,29,30,31}; // teensy analog input pins
+
 byte activeNote[16]      = {0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0}; // keeps track of active notes
 byte sensedNote;            // current reading
 int noteNumber;             // calculated midi note number
@@ -71,8 +73,9 @@ int chordNote[8][16] = {
   { 0, 4, 8,12,16,20,24,28,32,36,40,44,48,52,56,60 }   //aug  
 };
 
+// SETUP
 void setup() {
-  for (int i = 0; i < 11; i++) {
+  for (int i = 0; i < 12; i++) {
      pinMode(colPin[i],INPUT_PULLUP);
   }
     for (int i = 0; i < 3; i++) {
@@ -83,6 +86,7 @@ void setup() {
   Serial1.flush();
 }
 
+// MAIN LOOP
 void loop() {
   currentMillis = millis();
   if ((unsigned long)(currentMillis - statusPreviousMillis) >= CHECK_INTERVAL) {
@@ -97,7 +101,7 @@ void loop() {
       }
       if (sensedNote != activeNote[scanSensors]) {
         noteNumber = START_NOTE + chord + chordNote[chordType][scanSensors] + octave + transposition;
-        if ((noteNumber < 128) && (noteNumber > -1) && (chordNote[chord][scanSensors] > -1)) {    // we don't want to send midi out of range, or play silent notes
+        if ((noteNumber < 128) && (noteNumber > -1) && (chordNote[chord][scanSensors] > -1)) {    // we don't want to send midi out of range or play silent notes
           if (sensedNote){
               usbMIDI.sendNoteOn(noteNumber, VELOCITY, MIDI_CH + 1);      // send Note On, USB MIDI
               midiSend((0x90 | MIDI_CH), noteNumber, VELOCITY);           // send Note On, DIN MIDI
@@ -112,22 +116,23 @@ void loop() {
     statusPreviousMillis = currentMillis;                                 // reset interval timing
   }
 }
+// END MAIN LOOP
 
-//  Send a three byte midi message on serial 1 (DIN MIDI) 
+//  Send a three byte midi message on serial 1 (DIN MIDI)
 void midiSend(byte midistatus, byte data1, byte data2) {
   Serial1.write(midistatus);
   Serial1.write(data1);
   Serial1.write(data2);
 }
 
-
+// Check chord keyboard and potentiometers, if changed shut off any active notes and replay with new settings
 void setNoteParamsPlay() {
   int rePlay = 0;
   int readChord = 0;
   int type[3] = {0,0,0};
   for (int row = 0; row < 3; row++) {     // scan keyboard rows from lowest (7th) row to highest (maj) row
     enableRow(row);                       // set current row low, others high
-    for (int col = 0; col < 11; col++) {  // scan keyboard columns from lowest note to highest
+    for (int col = 0; col < 12; col++) {  // scan keyboard columns from lowest note to highest
       if (!digitalRead(colPin[col])) {    // is scanned pin low (active)?
         readChord = col;                  // set chord base note, high note gets priority
         type[row] = 1;                    // set row bit high
@@ -149,7 +154,7 @@ void setNoteParamsPlay() {
   if (rePlay) {
     for (int i = 0; i < BEAMS; i++) {
        noteNumber = START_NOTE + chord + chordNote[chordType][i] + octave + transposition;
-       if ((noteNumber < 128) && (noteNumber > -1) && (chordNote[chordType][i] > -1)) {      // we don't want to send midi out of range, or play silent notes
+       if ((noteNumber < 128) && (noteNumber > -1) && (chordNote[chordType][i] > -1)) {      // we don't want to send midi out of range or play silent notes
          if (activeNote[i]) {
           usbMIDI.sendNoteOff(noteNumber, VELOCITY, MIDI_CH + 1); // send Note Off, USB MIDI
           midiSend((0x80 | MIDI_CH), noteNumber, VELOCITY);       // send Note Off, DIN MIDI
@@ -158,7 +163,7 @@ void setNoteParamsPlay() {
     }
     for (int i = 0; i < BEAMS; i++) {
       noteNumber = START_NOTE + readChord + chordNote[readChordType][i] + readOctave + readTransposition;
-      if ((noteNumber < 128) && (noteNumber > -1) && (chordNote[readChordType][i] > -1)) {    // we don't want to send midi out of range, or play silent notes
+      if ((noteNumber < 128) && (noteNumber > -1) && (chordNote[readChordType][i] > -1)) {    // we don't want to send midi out of range or play silent notes
         if (activeNote[i]) {
           usbMIDI.sendNoteOn(noteNumber, VELOCITY, MIDI_CH + 1);  // send Note On, USB MIDI
           midiSend((0x90 | MIDI_CH), noteNumber, VELOCITY);       // send Note On, DIN MIDI
@@ -172,6 +177,7 @@ void setNoteParamsPlay() {
   }
 }
 
+// Set selected row low (active), others high
 void enableRow(int row) {
   for (int rc = 0; rc < 3; rc++) {
     if (row == rc) digitalWrite(rowPin[row], LOW); else digitalWrite(rowPin[row], HIGH);
