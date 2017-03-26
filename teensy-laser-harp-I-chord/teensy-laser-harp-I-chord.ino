@@ -10,7 +10,7 @@
 //                                                                     //
 /////////////////////////////////////////////////////////////////////////
 
-// STILL UNTESTED VERSION aka just a sketch - need to build keyboard first :)
+// STILL IN TESTING AND DEVELOPMENT - HAVING ISSUES WITH KEYBOARD
 
 #define MIDI_CH 0            // MIDI channel (0 is MIDI channel 1 on DIN MIDI) 
 #define VELOCITY 64          // MIDI note velocity (64 for medium velocity, 127 for maximum)
@@ -26,7 +26,7 @@
 unsigned long currentMillis = 0L;
 unsigned long statusPreviousMillis = 0L;
 
-byte colPin[12]          = {3,4,5,6,7,8,9,10,11,12,32,33};  // teensy digital input pins for keyboard columns
+byte colPin[12]          = {3,4,5,6,7,8,9,10,11,12,32,0};  // teensy digital input pins for keyboard columns
                                                             // (not using pin 2 so you can use same hardware as original version)
                                                           
                                                             // column setup for omnichord style (circle of fifths)
@@ -34,7 +34,7 @@ byte colPin[12]          = {3,4,5,6,7,8,9,10,11,12,32,33};  // teensy digital in
                                                             // col/note  1,  8,  3, 10,  5,  0,  7,  2,  9,  4, 11,  6
                                                             // for chromatic order, C to B, wire to columns in straight order 0 to 11
 
-byte rowPin[3]           = {24,25,13};                      // teensy output pins for keyboard rows, where 0 is bottom row
+byte rowPin[3]           = {24,25,33};                      // teensy output pins for keyboard rows, where 0 is bottom row
 
                                                             // chord type   maj, min, 7th
                                                             // row            2,   1,   0
@@ -79,11 +79,8 @@ void setup() {
      pinMode(colPin[i],INPUT_PULLUP);
   }
     for (int i = 0; i < 3; i++) {
-     pinMode(rowPin[i],OUTPUT);
-     digitalWrite(rowPin[i], HIGH);
+     pinMode(rowPin[i],INPUT); // Put rows to high Z
   }
-  Serial1.begin(31250);  // start serial with midi baudrate 31250
-  Serial1.flush();
 }
 
 // MAIN LOOP
@@ -101,13 +98,11 @@ void loop() {
       }
       if (sensedNote != activeNote[scanSensors]) {
         noteNumber = START_NOTE + chord + chordNote[chordType][scanSensors] + octave + transposition;
-        if ((noteNumber < 128) && (noteNumber > -1) && (chordNote[chord][scanSensors] > -1)) {    // we don't want to send midi out of range or play silent notes
+        if ((noteNumber < 128) && (noteNumber > -1) && (chordNote[chordType][scanSensors] > -1)) {    // we don't want to send midi out of range or play silent notes
           if (sensedNote){
               usbMIDI.sendNoteOn(noteNumber, VELOCITY, MIDI_CH + 1);      // send Note On, USB MIDI
-              midiSend((0x90 | MIDI_CH), noteNumber, VELOCITY);           // send Note On, DIN MIDI
           } else {
               usbMIDI.sendNoteOff(noteNumber, VELOCITY, MIDI_CH + 1);     // send note Off, USB MIDI
-              midiSend((0x80 | MIDI_CH), noteNumber, VELOCITY);           // send Note Off, DIN MIDI
           }
         }  
         activeNote[scanSensors] = sensedNote;         
@@ -118,28 +113,20 @@ void loop() {
 }
 // END MAIN LOOP
 
-//  Send a three byte midi message on serial 1 (DIN MIDI)
-void midiSend(byte midistatus, byte data1, byte data2) {
-  Serial1.write(midistatus);
-  Serial1.write(data1);
-  Serial1.write(data2);
-}
-
 // Check chord keyboard and potentiometers, if changed shut off any active notes and replay with new settings
 void setNoteParamsPlay() {
   int rePlay = 0;
   int readChord = 0;
-  int type[3] = {0,0,0};
+  int readChordType = 0;
   for (int row = 0; row < 3; row++) {     // scan keyboard rows from lowest (7th) row to highest (maj) row
     enableRow(row);                       // set current row low, others high
     for (int col = 0; col < 12; col++) {  // scan keyboard columns from lowest note to highest
       if (!digitalRead(colPin[col])) {    // is scanned pin low (active)?
         readChord = col;                  // set chord base note, high note gets priority
-        type[row] = 1;                    // set row bit high
+        readChordType |= (1 << row);      // set row bit in chord type
       }
     }
   }
-  int readChordType = type[2]+type[1]*2+type[0]*4;              // combine rows binary to get chord type value
   if ((readChord != chord) || (readChordType != chordType)) {   // have the values changed since last scan?
     rePlay = 1;
   }  
@@ -157,7 +144,6 @@ void setNoteParamsPlay() {
        if ((noteNumber < 128) && (noteNumber > -1) && (chordNote[chordType][i] > -1)) {      // we don't want to send midi out of range or play silent notes
          if (activeNote[i]) {
           usbMIDI.sendNoteOff(noteNumber, VELOCITY, MIDI_CH + 1); // send Note Off, USB MIDI
-          midiSend((0x80 | MIDI_CH), noteNumber, VELOCITY);       // send Note Off, DIN MIDI
          }
        }
     }
@@ -166,7 +152,6 @@ void setNoteParamsPlay() {
       if ((noteNumber < 128) && (noteNumber > -1) && (chordNote[readChordType][i] > -1)) {    // we don't want to send midi out of range or play silent notes
         if (activeNote[i]) {
           usbMIDI.sendNoteOn(noteNumber, VELOCITY, MIDI_CH + 1);  // send Note On, USB MIDI
-          midiSend((0x90 | MIDI_CH), noteNumber, VELOCITY);       // send Note On, DIN MIDI
         }
       }
     }
@@ -177,10 +162,15 @@ void setNoteParamsPlay() {
   }
 }
 
-// Set selected row low (active), others high
-void enableRow(int row) {
+// Set selected row low (active), others to low Z
+void enableRow(int selectedRow) {
   for (int rc = 0; rc < 3; rc++) {
-    if (row == rc) digitalWrite(rowPin[row], LOW); else digitalWrite(rowPin[row], HIGH);
+    if (selectedRow == rc) {
+      pinMode(rowPin[selectedRow], OUTPUT);
+      digitalWrite(rowPin[selectedRow], LOW);
+    } else {
+      pinMode(rowPin[selectedRow], INPUT); // Put to low Z for safety against shorts
+    }
   }
 }
 
