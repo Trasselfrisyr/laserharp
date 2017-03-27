@@ -10,7 +10,6 @@
 //                                                                     //
 /////////////////////////////////////////////////////////////////////////
 
-// STILL IN TESTING AND DEVELOPMENT - HAVING ISSUES WITH KEYBOARD
 
 #define MIDI_CH 0            // MIDI channel (0 is MIDI channel 1 on DIN MIDI) 
 #define VELOCITY 64          // MIDI note velocity (64 for medium velocity, 127 for maximum)
@@ -34,10 +33,10 @@ byte colPin[12]          = {3,4,5,6,7,8,9,10,11,12,32,0};  // teensy digital inp
                                                             // col/note  1,  8,  3, 10,  5,  0,  7,  2,  9,  4, 11,  6
                                                             // for chromatic order, C to B, wire to columns in straight order 0 to 11
 
-byte rowPin[3]           = {24,25,33};                      // teensy output pins for keyboard rows, where 0 is bottom row
+byte rowPin[3]           = {33,25,24};                      // teensy output pins for keyboard rows
 
                                                             // chord type   maj, min, 7th
-                                                            // row            2,   1,   0
+                                                            // row            0,   1,   2
                                                             
                                                             // chordType 0 to 7, from binary row combinations
                                                             // 0 0 0 silent
@@ -57,7 +56,7 @@ int noteNumber;             // calculated midi note number
 int chord = 0;              // chord setting (base note of chord)
 int chordType = 0;          // chord type (maj, min, 7th...)
 int octave = 0;             // octave setting
-int transposition = 0;      // transposition setting
+int transposition = 0;      // transposition setting 
 
 int thrValue = 120;         // sensitivity value
 int offThr;
@@ -79,7 +78,8 @@ void setup() {
      pinMode(colPin[i],INPUT_PULLUP);
   }
     for (int i = 0; i < 3; i++) {
-     pinMode(rowPin[i],INPUT); // Put rows to high Z
+     pinMode(rowPin[i],OUTPUT);
+     digitalWrite(rowPin[i],LOW);
   }
 }
 
@@ -118,8 +118,8 @@ void setNoteParamsPlay() {
   int rePlay = 0;
   int readChord = 0;
   int readChordType = 0;
-  for (int row = 0; row < 3; row++) {     // scan keyboard rows from lowest (7th) row to highest (maj) row
-    enableRow(row);                       // set current row low, others high
+  for (int row = 0; row < 3; row++) {     // scan keyboard rows from (7th) row to (maj) row
+    enableRow(row);                       // set current row low
     for (int col = 0; col < 12; col++) {  // scan keyboard columns from lowest note to highest
       if (!digitalRead(colPin[col])) {    // is scanned pin low (active)?
         readChord = col;                  // set chord base note, high note gets priority
@@ -162,15 +162,17 @@ void setNoteParamsPlay() {
   }
 }
 
-// Set selected row low (active), others to low Z
-void enableRow(int selectedRow) {
+// Set selected row low (active), others to Hi-Z
+void enableRow(int row) {
   for (int rc = 0; rc < 3; rc++) {
-    if (selectedRow == rc) {
-      pinMode(rowPin[selectedRow], OUTPUT);
-      digitalWrite(rowPin[selectedRow], LOW);
+    if (row == rc) {
+      pinMode(rowPin[rc], OUTPUT);
+      digitalWrite(rowPin[rc], LOW);
     } else {
-      pinMode(rowPin[selectedRow], INPUT); // Put to low Z for safety against shorts
+      digitalWrite(rowPin[rc], HIGH);
+      pinMode(rowPin[rc], INPUT); // Put to Hi-Z for safety against shorts
     }
   }
+  delayMicroseconds(30); // wait before reading ports (let ports settle after changing)
 }
 
