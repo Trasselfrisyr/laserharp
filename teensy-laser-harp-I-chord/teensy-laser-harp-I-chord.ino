@@ -17,10 +17,10 @@
 #define BEAMS 16             // number of laser beams (up to 16)
 
 #define THR_SET_PIN A10      // pin for sensitivity adjustment potentiometer
-#define OCTAVE_SET_PIN A12   // pin for octave setting potentiometer (-3 to +3 octaves)
+#define OCTAVE_SET_PIN A12   // pin for octave setting potentiometer (-4 to +3 octaves)
 #define TRANSP_SET_PIN A13   // pin for transposition setting potentiometer (-12 to +12 semitones)
 
-#define CHECK_INTERVAL 5     // interval in ms for matrix check
+#define CHECK_INTERVAL 5     // interval in ms for sensor check
 
 unsigned long currentMillis = 0L;
 unsigned long statusPreviousMillis = 0L;
@@ -53,7 +53,7 @@ byte sensorPin[16]       = {14,15,16,17,18,19,20,21,22,23,26,27,28,29,30,31}; //
 byte activeNote[16]      = {0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0}; // keeps track of active notes
 byte sensedNote;            // current reading
 int noteNumber;             // calculated midi note number
-int chord = 0;              // chord setting (base note of chord)
+int chord = 0;              // chord key setting (base note of chord)
 int chordType = 0;          // chord type (maj, min, 7th...)
 int octave = 0;             // octave setting
 int transposition = 0;      // transposition setting 
@@ -90,7 +90,7 @@ void loop() {
     thrValue = map(analogRead(THR_SET_PIN),0,1023,60,600);                // set sensitivity for light sensors
     offThr = thrValue - 50;
     setNoteParamsPlay();                                                  // adjust note selection parameters with note-offs for previous params and note-ons for new
-    for (int scanSensors = 0; scanSensors < BEAMS; scanSensors++) {       // scan matrix for changes and send note on/off accordingly
+    for (int scanSensors = 0; scanSensors < BEAMS; scanSensors++) {       // scan sensors for changes and send note on/off accordingly
       if (!activeNote[scanSensors]){
         sensedNote = (analogRead(sensorPin[scanSensors]) > thrValue);     // if note is off, sensedNote gets high if sensor value is higher than thrValue
       } else {
