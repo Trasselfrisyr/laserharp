@@ -196,12 +196,12 @@ void setNoteParamsChord() {
   int rePlay = 0;
   int readChord = 0;
   int readChordType = 0;
-  transposition = map(analogRead(TRANSP_SET_PIN), 0, 1023, -6, 6);
+  transposition = map(analogRead(TRANSP_SET_PIN), 0, 1023, 6, 18); // get positive transposition values with C (12) in the middle
   for (int row = 0; row < 3; row++) {         // scan keyboard rows from (7th) row to (maj) row
     enableRow(row);                           // set current row low
     for (int col = 0; col < 12; col++) {      // scan keyboard columns from lowest note to highest
       if (!digitalRead(colPin[col])) {        // is scanned pin low (active)?
-        readChord = col+(transposition*7)%12; // set chord base note, high note gets priority, transpose in fifths
+        readChord = (col+transposition*7)%12; // set chord base note, high note gets priority, transpose in fifths
         readChordType |= (1 << row);          // set row bit in chord type
       }
     }
