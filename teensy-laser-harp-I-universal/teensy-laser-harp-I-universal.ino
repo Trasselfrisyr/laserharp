@@ -22,6 +22,7 @@
 #define OCTAVE_SET_PIN A12   // pin for octave setting potentiometer (-3 to +3 octaves)
 #define TRANSP_SET_PIN A13   // pin for transposition setting potentiometer (-12 to +12 semitones)
 #define MODE_SW_PIN 2        // pin for mode switch (chord keyboard play/scale play)
+#define LED_PIN 13           // pin for LED indicating 0 transpose
 
 #define CHECK_INTERVAL 5     // interval in ms for sensor check
 
@@ -116,13 +117,14 @@ byte scaleNote[32][16] = {
 // SETUP
 
 void setup() {
-  pinMode(MODE_SW_PIN,INPUT_PULLUP);
+  pinMode(MODE_SW_PIN, INPUT_PULLUP);
+  pinMode(LED_PIN, OUTPUT);
   for (int i = 0; i < 12; i++) {
-     pinMode(colPin[i],INPUT_PULLUP);
+     pinMode(colPin[i], INPUT_PULLUP);
   }
     for (int i = 0; i < 3; i++) {
-     pinMode(rowPin[i],OUTPUT);
-     digitalWrite(rowPin[i],LOW);
+     pinMode(rowPin[i], OUTPUT);
+     digitalWrite(rowPin[i], LOW);
   }
 }
 
@@ -196,7 +198,11 @@ void setNoteParamsChord() {
   int rePlay = 0;
   int readChord = 0;
   int readChordType = 0;
-  transposition = map(analogRead(TRANSP_SET_PIN), 0, 1023, 6, 18); // get positive transposition values with C (12) in the middle
+  int readTransposition = map(analogRead(TRANSP_SET_PIN), 0, 1023, 6, 19); // get positive transposition values with C (12) in the middle
+  if (readTransposition != transposition) {
+    rePlay = 1;
+    transposition = readTransposition;
+  }
   for (int row = 0; row < 3; row++) {         // scan keyboard rows from (7th) row to (maj) row
     enableRow(row);                           // set current row low
     for (int col = 0; col < 12; col++) {      // scan keyboard columns from lowest note to highest
@@ -214,6 +220,7 @@ void setNoteParamsChord() {
     rePlay = 1;
   }
   if (rePlay) {
+    if (transposition%12 == 0) digitalWrite(LED_PIN, HIGH); else digitalWrite(LED_PIN, LOW); // LED lit if no transposition
     for (int i = 0; i < BEAMS; i++) {
        noteNumber = START_NOTE + chord + chordNote[chordType][i] + octave;
        if ((noteNumber < 128) && (noteNumber > -1) && (chordNote[chordType][i] > -1)) {      // we don't want to send midi out of range or play silent notes
@@ -252,6 +259,7 @@ void setNoteParamsScale() {
     rePlay = 1;
   }
   if (rePlay) {
+    if (transposition == 0) digitalWrite(LED_PIN, HIGH); else digitalWrite(LED_PIN, LOW); // LED lit if no transposition
     for (int i = 0; i < BEAMS; i++) {
        noteNumber = START_NOTE + scaleNote[scale][i] + octave + transposition;
        if ((noteNumber < 128) && (noteNumber > -1)) {             // we don't want to send midi out of range
