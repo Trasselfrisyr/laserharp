@@ -152,7 +152,7 @@ void loop() {
 // END MAIN LOOP
 
 void playChords() {
-  for (int scanSensors = 0; scanSensors < BEAMS; scanSensors++) {       // scan sebsors for changes and send note on/off accordingly
+  for (int scanSensors = 0; scanSensors < BEAMS; scanSensors++) {       // scan sensors for changes and send note on/off accordingly
     if (!activeNote[scanSensors]){
       sensedNote = (analogRead(sensorPin[scanSensors]) > thrValue);     // if note is off, sensedNote gets high if sensor value is higher than thrValue
     } else {
@@ -259,7 +259,7 @@ void setNoteParamsScale() {
     rePlay = 1;
   }
   if (rePlay) {
-    if (transposition == 0) digitalWrite(LED_PIN, HIGH); else digitalWrite(LED_PIN, LOW); // LED lit if no transposition
+    if (readTransposition == 0) digitalWrite(LED_PIN, HIGH); else digitalWrite(LED_PIN, LOW); // LED lit if no transposition
     for (int i = 0; i < BEAMS; i++) {
        noteNumber = START_NOTE + scaleNote[scale][i] + octave + transposition;
        if ((noteNumber < 128) && (noteNumber > -1)) {             // we don't want to send midi out of range
