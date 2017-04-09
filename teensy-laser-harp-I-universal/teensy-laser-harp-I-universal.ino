@@ -122,9 +122,9 @@ void setup() {
   for (int i = 0; i < 12; i++) {
      pinMode(colPin[i], INPUT_PULLUP);
   }
-    for (int i = 0; i < 3; i++) {
-     pinMode(rowPin[i], OUTPUT);
-     digitalWrite(rowPin[i], LOW);
+  for (int i = 0; i < 3; i++) {
+   pinMode(rowPin[i], OUTPUT);
+   digitalWrite(rowPin[i], LOW);
   }
 }
 
